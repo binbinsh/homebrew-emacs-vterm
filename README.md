@@ -18,21 +18,18 @@ brew tap binbinsh/emacs-vterm
 brew install emacs-vterm
 ```
 
-After install, the application bundle is placed at:
+After install, create a link in `/Applications`:
 
-```
-$(brew --prefix)/opt/emacs-vterm/Emacs VTerm.app
+```bash
+osascript -e 'do shell script "ln -s /opt/homebrew/opt/emacs-vterm/Emacs\\ VTerm.app /Applications/Emacs\\ VTerm.app" with administrator privileges'
 ```
 
 ### Behavior
 
 - On GUI launches with no arguments, Emacs opens VTerm by default.
+- Right-click the Dock icon and select "New Frame" to create a new VTerm frame.
 - If `vterm` is not installed yet, install it via `M-x package-install RET vterm RET`.
 - Normal behavior is preserved (e.g., `emacs-vterm file.txt`, `--daemon`, `--batch`).
-
-### Icon
-
-- Default icon is `icons/emacs-vterm.png` (converted to `.icns` during build).
 
 ### CLI
 

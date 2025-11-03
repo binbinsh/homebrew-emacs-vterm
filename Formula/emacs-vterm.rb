@@ -350,6 +350,9 @@ class EmacsVterm < EmacsBase
       To disable PATH injection, set EMACS_PLUS_NO_PATH_INJECTION before running:
         export EMACS_PLUS_NO_PATH_INJECTION=1
 
+      To add a symlink into Applications:
+        osascript -e 'do shell script "ln -s /opt/homebrew/opt/emacs-vterm/Emacs\\ VTerm.app /Applications/Emacs\\ VTerm.app" with administrator privileges'
+
       Report any issues to https://github.com/binbinsh/homebrew-emacs-vterm
     EOS
   end
