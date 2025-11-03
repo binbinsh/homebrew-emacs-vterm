@@ -1,0 +1,41 @@
+name: Emacs VTerm CI
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'Formula/**'
+      - 'Library/**'
+      - 'icons/**'
+      - 'patches/**'
+      - 'scripts/validate-icons.rb'
+      - '.github/workflows/emacs-vterm.yml'
+  pull_request:
+    paths:
+      - 'Formula/**'
+      - 'Library/**'
+      - 'icons/**'
+      - 'patches/**'
+      - 'scripts/validate-icons.rb'
+      - '.github/workflows/emacs-vterm.yml'
+
+jobs:
+  audit-and-validate:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Validate icons
+        run: |
+          ruby --version
+          ruby scripts/validate-icons.rb
+
+      - name: Homebrew audit (tap local checkout)
+        run: |
+          brew --version
+          brew update
+          brew tap binbinsh/emacs-vterm "${GITHUB_WORKSPACE}"
+          brew audit --formula binbinsh/emacs-vterm/emacs-vterm
+
+
