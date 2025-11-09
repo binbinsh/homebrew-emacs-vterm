@@ -33,7 +33,7 @@ brew install emacs-vterm
 After install, create a link in `/Applications`:
 
 ```bash
-osascript -e 'do shell script "ln -s /opt/homebrew/opt/emacs-vterm/Emacs\\ VTerm.app /Applications/Emacs\\ VTerm.app" with administrator privileges'
+osascript -e 'do shell script "ln -sf \"/opt/homebrew/opt/emacs-vterm/Emacs VTerm.app\" \"/Applications/Emacs VTerm.app\"" with administrator privileges'
 ```
 
 ## Behavior
@@ -59,5 +59,4 @@ emacs-vterm
 ## Credits
 
 This work builds directly on the excellent `homebrew-emacs-plus` project and reuses its formula structure, patches, and options where appropriate. See upstream for detailed documentation and discussion of build flags and patches.
-
 
