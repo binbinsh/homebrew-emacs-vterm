@@ -1,1 +1,3 @@
-ICONS_CONFIG = {}.freeze
+module EmacsVtermTap
+  ICONS_CONFIG = {}.freeze
+end

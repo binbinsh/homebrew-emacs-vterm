@@ -12,7 +12,7 @@ end
 
 class EmacsBase < Formula
   def self.init version
-    @@urlResolver = UrlResolver.new(version, ENV["HOMEBREW_EMACS_VTERM_MODE"] || "remote")
+    @@urlResolver = EmacsVtermTap::UrlResolver.new(version, ENV["HOMEBREW_EMACS_VTERM_MODE"] || "remote")
   end
 
   def self.local_patch(name, sha:)
@@ -23,7 +23,7 @@ class EmacsBase < Formula
   end
 
   def self.inject_icon_options
-    ICONS_CONFIG.each do |icon, sha|
+    EmacsVtermTap::ICONS_CONFIG.each do |icon, sha|
       option "with-#{icon}-icon", "Using Emacs #{icon} icon"
       next if build.without? "#{icon}-icon"
       resource "#{icon}-icon" do

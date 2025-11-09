@@ -9,6 +9,7 @@ require_relative '../Library/Icons'
 class IconValidator
   ICONS_DIR = Pathname.new(__dir__).parent / 'icons'
   EXCLUDED_FILES = ['.DS_Store'].freeze
+  ICONS_CONFIG = EmacsVtermTap::ICONS_CONFIG
 
   def initialize
     @errors = []

@@ -202,7 +202,7 @@ class EmacsVterm < EmacsBase
       icons_dir = buildpath/"nextstep/Emacs.app/Contents/Resources"
 
       selected_icon = false
-      ICONS_CONFIG.each_key do |icon|
+      EmacsVtermTap::ICONS_CONFIG.each_key do |icon|
         next if build.without? "#{icon}-icon"
 
         selected_icon = true
