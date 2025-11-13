@@ -1,6 +1,13 @@
 (require 'subr-x)
 (require 'tramp nil t)
 
+;; Default visual setup for Emacs VTerm.app
+(when (fboundp 'tool-bar-mode)
+  (tool-bar-mode -1))
+(when (fboundp 'scroll-bar-mode)
+  (scroll-bar-mode -1))
+(load-theme 'modus-operandi t)
+
 (defgroup emacs-vterm nil
   "Customization group for the homebrew Emacs vterm helpers."
   :group 'term)
