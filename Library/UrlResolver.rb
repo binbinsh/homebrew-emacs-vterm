@@ -31,5 +31,9 @@ module EmacsVtermTap
     def tahoe_icon_url(name)
       "#{@formula_root}/icons/#{name}.icon"
     end
+
+    def site_lisp_file(name)
+      "#{@formula_root}/site-lisp/#{name}"
+    end
   end
 end

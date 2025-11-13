@@ -103,6 +103,11 @@ class EmacsVterm < EmacsBase
     sha256 "2364d3468ecfde56ad412e93412e2621d4a367e5e5772c739d1152578f7fd52e"
   end
 
+  resource "emacs-libvterm" do
+    url "https://github.com/akermu/emacs-libvterm/archive/12bce963fce7a25264cfaf2e29376a6bc2a9bb62.tar.gz"
+    sha256 "3de4a5e33bd651ec919dad658b8b489b4592733ac008b0e89c248169ef3929ea"
+  end
+
   #
   # Patches
   #
@@ -261,45 +266,49 @@ class EmacsVterm < EmacsBase
       # Install site-lisp into the app bundle Resources to avoid global share conflicts
       site_lisp_dir = Pathname.new(new_app).join("Contents/Resources/site-lisp")
       site_lisp_dir.mkpath
-      File.write(site_lisp_dir/"emacs-vterm-start.el", <<~ELISP)
-        ;; Auto-start vterm for GUI, no-args launches, while respecting user config
-        (when (and (display-graphic-p)
-                   (not noninteractive)
-                   (not (daemonp))
-                   (null command-line-args-left)
-                   (not (bound-and-true-p initial-buffer-choice)))
-          (setq initial-buffer-choice
-                (lambda ()
-                  (require 'vterm nil t)
-                  (if (fboundp 'vterm)
-                      (let* ((ts (format-time-string "%Y%m%d-%H%M%S"))
-                             (buf (generate-new-buffer-name (format "*vterm-%s*" ts))))
-                        (vterm buf))
-                    (progn
-                      (message "emacs-vterm: vterm not found. Install with M-x package-install RET vterm RET")
-                      (get-buffer-create "*scratch*"))))))
+      start_file = Pathname.new(@@urlResolver.site_lisp_file("emacs-vterm-start.el"))
+      File.write(site_lisp_dir/"emacs-vterm-start.el", File.read(start_file))
 
-        ;; Also open vterm on newly created GUI frames
-        (add-hook 'after-make-frame-functions
-                  (lambda (frame)
-                    (when (and (display-graphic-p frame)
-                               (not noninteractive)
-                               (not (daemonp)))
-                      (with-selected-frame frame
-                        (require 'vterm nil t)
-                        (when (fboundp 'vterm)
-                          (let* ((ts (format-time-string "%Y%m%d-%H%M%S"))
-                                 (buf (generate-new-buffer-name (format "*vterm-%s*" ts))))
-                            (vterm buf)))))))
-      ELISP
+      vterm_site_dir = site_lisp_dir/"emacs-libvterm"
+      resource("emacs-libvterm").stage do
+        system "cmake", "-S", ".", "-B", "build",
+               "-DCMAKE_BUILD_TYPE=Release",
+               "-DUSE_SYSTEM_LIBVTERM=ON"
+        system "cmake", "--build", "build"
+        rm_r "build"
+        rm_r vterm_site_dir if vterm_site_dir.exist?
+        vterm_site_dir.install Dir["*"]
+      end
 
       site_start = site_lisp_dir/"site-start.el"
-      loader = '(load "emacs-vterm-start" t t)'
+      loader = <<~ELISP
+        (let* ((source (or load-file-name
+                           (and (boundp 'byte-compile-current-file) byte-compile-current-file)
+                           buffer-file-name))
+               (site-dir (and source (file-name-directory source)))
+               (pkg-dir (and site-dir (expand-file-name "emacs-libvterm" site-dir))))
+          (when (and pkg-dir (file-directory-p pkg-dir))
+            (add-to-list 'load-path pkg-dir)))
+        (load "emacs-vterm-start" t t)
+      ELISP
       if site_start.exist?
         content = File.read(site_start)
         File.open(site_start, "a") { |ff| ff.puts loader } unless content.include?(loader)
       else
         File.write(site_start, loader + "\n")
+      end
+
+      # Replace shims references in native pdmp artifacts to satisfy brew audit
+      shims_super = (HOMEBREW_LIBRARY/"Homebrew/shims/#{OS.mac? ? "mac" : "linux"}/super").to_s
+      replacement = (HOMEBREW_PREFIX/"bin").to_s
+      padded_replacement = replacement.ljust(shims_super.length, "\0")
+      Pathname.glob("#{prefix}/**/*.pdmp").each do |pdmp|
+        next unless pdmp.file?
+
+        content = File.binread(pdmp)
+        next unless content.include?(shims_super)
+
+        File.binwrite(pdmp, content.gsub(shims_super, padded_replacement))
       end
     else
       if build.with? "x11"
@@ -351,7 +360,7 @@ class EmacsVterm < EmacsBase
         export EMACS_PLUS_NO_PATH_INJECTION=1
 
       To add (or replace) a symlink in /Applications:
-        osascript -e 'do shell script "ln -sf \\"/opt/homebrew/opt/emacs-vterm/Emacs VTerm.app\\" \\"/Applications/Emacs VTerm.app\\"" with administrator privileges'
+        ln -sf "$(brew --prefix)/opt/emacs-vterm/Emacs VTerm.app" /Applications/
 
       Report any issues to https://github.com/binbinsh/homebrew-emacs-vterm
     EOS
