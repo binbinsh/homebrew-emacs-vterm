@@ -18,6 +18,14 @@
   :group 'emacs-vterm)
 
 (defvar-local emacs-vterm--last-buffer-name nil)
+(defvar emacs-vterm--load-error-announced nil
+  "Non-nil once we have informed the user that bundled vterm failed to load.")
+
+(defun emacs-vterm--report-bundled-vterm-error ()
+  "Emit (at most once) the bundled vterm load failure message."
+  (unless emacs-vterm--load-error-announced
+    (setq emacs-vterm--load-error-announced t)
+    (message "emacs-vterm: bundled vterm could not be loaded. Try `brew reinstall emacs-vterm`.")))
 
 (defun emacs-vterm--rename-eligible-p (&optional buffer)
   "Return non-nil when BUFFER should be auto-renamed."
@@ -93,34 +101,57 @@
   (setq emacs-vterm--last-buffer-name nil)
   (emacs-vterm--refresh-buffer-name))
 
+(defun emacs-vterm--local-default-directory ()
+  "Return a local directory path suitable for launching VTerm."
+  (let ((dir default-directory))
+    (or (and dir (not (file-remote-p dir)) dir)
+        (when-let ((home (getenv "HOME")))
+          (file-name-as-directory home))
+        (and (boundp 'user-emacs-directory) user-emacs-directory)
+        dir)))
+
+(defun emacs-vterm--start-vterm-buffer ()
+  "Attempt to start the bundled vterm and return the new buffer, or nil."
+  (let ((default-directory (or (emacs-vterm--local-default-directory)
+                               default-directory)))
+    (condition-case nil
+        (if (and (require 'vterm nil 'noerror)
+                 (fboundp 'vterm))
+            (vterm (emacs-vterm--generate-buffer-name))
+          (emacs-vterm--report-bundled-vterm-error)
+          nil)
+      (error
+       (emacs-vterm--report-bundled-vterm-error)
+       nil))))
+
+(defun emacs-vterm--frame-supports-vterm-p (&optional frame)
+  "Return non-nil when FRAME can host a GUI VTerm."
+  (let ((frame (or frame (selected-frame))))
+    (and (display-graphic-p frame)
+         (not noninteractive))))
+
+(defun emacs-vterm--initial-buffer ()
+  "Return the buffer that should open on GUI launches."
+  (if (emacs-vterm--frame-supports-vterm-p)
+      (or (emacs-vterm--start-vterm-buffer)
+          (get-buffer-create "*scratch*"))
+    (get-buffer-create "*scratch*")))
+
+(defun emacs-vterm--start-vterm-on-frame (frame)
+  "Open a VTerm buffer in FRAME when suitable."
+  (when (emacs-vterm--frame-supports-vterm-p frame)
+    (with-selected-frame frame
+      (emacs-vterm--start-vterm-buffer))))
+
 (with-eval-after-load 'vterm
   (add-hook 'vterm-mode-hook #'emacs-vterm--setup-buffer)
   (advice-add 'vterm--set-directory :after #'emacs-vterm--refresh-buffer-name))
 
 ;; Auto-start vterm for GUI, no-args launches, while respecting user config
-(when (and (display-graphic-p)
-           (not noninteractive)
-           (not (daemonp))
+(when (and (not noninteractive)
            (null command-line-args-left)
            (not (bound-and-true-p initial-buffer-choice)))
-  (setq initial-buffer-choice
-        (lambda ()
-          (require 'vterm nil t)
-          (if (fboundp 'vterm)
-              (let ((buf (emacs-vterm--generate-buffer-name)))
-                (vterm buf))
-            (progn
-              (message "emacs-vterm: vterm not found. Install with M-x package-install RET vterm RET")
-              (get-buffer-create "*scratch*"))))))
+  (setq initial-buffer-choice #'emacs-vterm--initial-buffer))
 
 ;; Also open vterm on newly created GUI frames
-(add-hook 'after-make-frame-functions
-          (lambda (frame)
-            (when (and (display-graphic-p frame)
-                       (not noninteractive)
-                       (not (daemonp)))
-              (with-selected-frame frame
-                (require 'vterm nil t)
-                (when (fboundp 'vterm)
-                  (let ((buf (emacs-vterm--generate-buffer-name)))
-                    (vterm buf)))))))
+(add-hook 'after-make-frame-functions #'emacs-vterm--start-vterm-on-frame)
