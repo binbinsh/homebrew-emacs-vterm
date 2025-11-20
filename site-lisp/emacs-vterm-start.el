@@ -143,6 +143,17 @@
     (with-selected-frame frame
       (emacs-vterm--start-vterm-buffer))))
 
+(defun emacs-vterm--populate-split-with-vterm (orig-fn &rest args)
+  "Advice to open a fresh vterm in the new split when run interactively.
+ORIG-FN is the original split function and ARGS are its arguments."
+  (let ((new-window (apply orig-fn args)))
+    (when (and (called-interactively-p 'interactive)
+               (window-live-p new-window)
+               (emacs-vterm--frame-supports-vterm-p (window-frame new-window)))
+      (with-selected-window new-window
+        (emacs-vterm--start-vterm-buffer)))
+    new-window))
+
 (with-eval-after-load 'vterm
   (add-hook 'vterm-mode-hook #'emacs-vterm--setup-buffer)
   (advice-add 'vterm--set-directory :after #'emacs-vterm--refresh-buffer-name))
@@ -155,3 +166,7 @@
 
 ;; Also open vterm on newly created GUI frames
 (add-hook 'after-make-frame-functions #'emacs-vterm--start-vterm-on-frame)
+
+;; After splitting (C-x 2 / C-x 3), show a new vterm in the created window
+(advice-add 'split-window-below :around #'emacs-vterm--populate-split-with-vterm)
+(advice-add 'split-window-right :around #'emacs-vterm--populate-split-with-vterm)

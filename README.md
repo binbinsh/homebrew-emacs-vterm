@@ -57,8 +57,9 @@ For remote SSH hosts, do the same setup so OSC-7 codes reach Emacs.
 ## Behavior
 
 - On GUI launches with no arguments, Emacs opens VTerm by default.
-- Right-click the Dock icon and select "New Frame" to create a new VTerm frame.
 - The `vterm` package is bundled so VTerm works out of the box.
+- Right-click the Dock icon and select "New Frame" to create a new VTerm frame.
+- `C-x 2` / `C-x 3` splits automatically open a new VTerm.
 - Normal behavior is preserved (e.g., `emacs-vterm file.txt`, `--daemon`, `--batch`).
 
 ## CLI
