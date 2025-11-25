@@ -17,6 +17,9 @@
   :type '(repeat string)
   :group 'emacs-vterm)
 
+(defconst emacs-vterm--about-buffer-name "*Emacs VTerm About*"
+  "Name of the buffer shown after a VTerm buffer closes.")
+
 (defvar-local emacs-vterm--last-buffer-name nil)
 (defvar emacs-vterm--load-error-announced nil
   "Non-nil once we have informed the user that bundled vterm failed to load.")
@@ -88,6 +91,52 @@
   (generate-new-buffer-name
    (or (emacs-vterm--format-buffer-name) "vterm")))
 
+(defun emacs-vterm--about-open-vterm ()
+  "Start a new VTerm buffer from the about screen."
+  (interactive)
+  (if-let ((buf (emacs-vterm--start-vterm-buffer)))
+      (switch-to-buffer buf)
+    (emacs-vterm--report-bundled-vterm-error)))
+
+(define-derived-mode emacs-vterm-about-mode special-mode "Emacs-VTerm-About"
+  "Major mode for the Emacs VTerm about buffer."
+  (setq-local mode-line-format '(" Emacs VTerm About"))
+  (setq-local truncate-lines t)
+  (setq-local cursor-type nil))
+
+(let ((map emacs-vterm-about-mode-map))
+  (define-key map (kbd "q") #'quit-window)
+  (define-key map (kbd "v") #'emacs-vterm--about-open-vterm)
+  (define-key map (kbd "RET") #'emacs-vterm--about-open-vterm))
+
+(defun emacs-vterm--prepare-about-buffer ()
+  "Return the Emacs VTerm about buffer, creating/refreshing it if needed."
+  (let ((buffer (get-buffer-create emacs-vterm--about-buffer-name)))
+    (with-current-buffer buffer
+      (emacs-vterm-about-mode)
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (propertize "Emacs VTerm\n" 'face '(:weight bold :height 1.3)))
+        (insert "Your VTerm session closed. The window stays put so your layout\n")
+        (insert "doesn't jump; start a new terminal from here anytime.\n\n")
+        (insert (propertize "Quick actions\n" 'face '(:weight bold)))
+        (insert "  RET / v   Open a new VTerm in this window\n")
+        (insert "  M-x vterm Start a terminal in any window\n")
+        (insert "  C-x 2/3   Split windows (a VTerm opens automatically)\n")
+        (insert "  Cmd-N     New VTerm frame from the Dock menu\n\n")
+        (insert "Press q to hide this buffer, or C-x b to switch buffers.\n"))
+      (goto-char (point-min)))
+    buffer))
+
+(defun emacs-vterm--switch-to-about-after-kill ()
+  "Swap windows displaying a dying VTerm buffer to the about buffer."
+  (when (derived-mode-p 'vterm-mode)
+    (let* ((windows (get-buffer-window-list (current-buffer) nil t))
+           (about (emacs-vterm--prepare-about-buffer)))
+      (dolist (win windows)
+        (when (window-live-p win)
+          (set-window-buffer win about))))))
+
 (defun emacs-vterm--refresh-buffer-name (&rest _)
   "Rename the current vterm buffer unless it is reserved."
   (when (emacs-vterm--rename-eligible-p)
@@ -134,8 +183,8 @@
   "Return the buffer that should open on GUI launches."
   (if (emacs-vterm--frame-supports-vterm-p)
       (or (emacs-vterm--start-vterm-buffer)
-          (get-buffer-create "*scratch*"))
-    (get-buffer-create "*scratch*")))
+          (emacs-vterm--prepare-about-buffer))
+    (emacs-vterm--prepare-about-buffer)))
 
 (defun emacs-vterm--start-vterm-on-frame (frame)
   "Open a VTerm buffer in FRAME when suitable."
@@ -156,6 +205,7 @@ ORIG-FN is the original split function and ARGS are its arguments."
 
 (with-eval-after-load 'vterm
   (add-hook 'vterm-mode-hook #'emacs-vterm--setup-buffer)
+  (add-hook 'kill-buffer-hook #'emacs-vterm--switch-to-about-after-kill)
   (advice-add 'vterm--set-directory :after #'emacs-vterm--refresh-buffer-name))
 
 ;; Auto-start vterm for GUI, no-args launches, while respecting user config
