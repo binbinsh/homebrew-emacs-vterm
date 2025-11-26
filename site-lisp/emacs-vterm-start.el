@@ -204,6 +204,7 @@ ORIG-FN is the original split function and ARGS are its arguments."
     new-window))
 
 (with-eval-after-load 'vterm
+  (setq vterm-timer-delay 0.015)
   (add-hook 'vterm-mode-hook #'emacs-vterm--setup-buffer)
   (add-hook 'kill-buffer-hook #'emacs-vterm--switch-to-about-after-kill)
   (advice-add 'vterm--set-directory :after #'emacs-vterm--refresh-buffer-name))
